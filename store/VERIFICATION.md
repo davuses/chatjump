@@ -1,6 +1,8 @@
-# Release verification — 1.0.1
+# Release verification — 1.0.2
 
 Checked October 20, 2026.
+
+Refresh button and its handler have been removed in this release. Automatic question detection remains enabled.
 
 ## Findings
 

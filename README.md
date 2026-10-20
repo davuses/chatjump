@@ -42,7 +42,7 @@ The observed live page structure was inspected on October 20, 2026. Automated co
 
 See [Privacy policy](docs/privacy.md), [store listing draft](store/LISTING.md), and [publishing guide](store/PUBLISHING.md). The extension runs only on `https://chatgpt.com/*`. It reads the open conversation locally and may request that conversation from ChatGPT's own endpoints using the browser's existing session. It has no analytics, external services, or remote executable code.
 
-ChatGPT's DOM and private conversation API may change. If a jump fails, refresh the list; if it persists, report the failure without including private chat content.
+ChatGPT's DOM and private conversation API may change. If a jump fails, reload the ChatGPT tab; if it persists, report the failure without including private chat content. New questions are detected automatically; there is no manual Refresh button.
 
 ## License
 

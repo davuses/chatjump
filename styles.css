@@ -214,13 +214,6 @@ body[class*="dark"] {
 }
 
 
-#cgx-actions {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-top: 8px;
-}
-
 .cgx-btn {
   border: 1px solid var(--cgx-border);
   background: var(--cgx-btn-bg);

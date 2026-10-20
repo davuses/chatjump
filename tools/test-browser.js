@@ -33,7 +33,7 @@ const html = `<!doctype html><html class="dark"><meta charset="utf-8"><title>Cha
     await page.goto('https://chatgpt.com/c/chatjump-demo');
     await page.locator('#cgx-list .cgx-item').nth(3).waitFor();
     assert.equal(await page.locator('#cgx-list .cgx-item').count(), 4);
-    assert.equal(await page.locator('.cgx-toggle, .cgx-collapsed, #cgx-collapse-all, #cgx-expand-all').count(), 0);
+    assert.equal(await page.locator('.cgx-toggle, .cgx-collapsed, #cgx-collapse-all, #cgx-expand-all, #cgx-refresh').count(), 0);
     for (const i of [3,0,2,1]) {
       await page.locator('#cgx-list .cgx-item').nth(i).click();
       await page.locator(`[data-chatgpt-search-message-ids="u-${i}"].cgx-highlight`).waitFor();

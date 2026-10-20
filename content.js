@@ -462,9 +462,6 @@
           </button>
         </div>
         <input id="cgx-search" aria-label="Search questions" placeholder="Search questions…" />
-        <div id="cgx-actions">
-          <button class="cgx-btn" id="cgx-refresh" title="Rescan messages">Refresh</button>
-        </div>
       </div>
       <div id="cgx-status" role="status" aria-live="polite"></div>
       <div id="cgx-list" aria-label="Questions"></div>
@@ -480,13 +477,6 @@
     const search = sb.querySelector("#cgx-search");
     search.addEventListener("input", scheduleSearchRender);
     sb.querySelector("#cgx-list").addEventListener("click", onListClick);
-
-    // Refresh: also forget the resolved DOM strategy, so a manual refresh can
-    // recover from ChatGPT swapping its markup mid-session.
-    sb.querySelector("#cgx-refresh").addEventListener("click", () => {
-      CGXDom.resetStrategy();
-      scanAndRender({ force: true });
-    });
 
     const hiddenDefaultToggle = sb.querySelector("#cgx-hidden-default");
     syncHiddenByDefaultToggle(sb);
@@ -790,7 +780,7 @@
       flashElement(el);
       if (status) status.textContent = "";
     } catch {
-      if (isCurrent() && status) status.textContent = "Couldn’t reach this question. Refresh the list and try again.";
+      if (isCurrent() && status) status.textContent = "Couldn’t reach this question. Reload this ChatGPT tab and try again.";
     }
   }
 

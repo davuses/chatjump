@@ -12,10 +12,7 @@
   --cgx-btn-bg-hover: rgba(255, 255, 255, 1);
   --cgx-item-bg: rgba(255, 255, 255, 0.75);
   --cgx-item-bg-hover: rgba(255, 255, 255, 1);
-  --cgx-input-bg: rgba(255, 255, 255, 0.95);
-  --cgx-toggle-bg: rgba(255, 255, 255, 0.95);
-  --cgx-toggle-bg-hover: rgba(255, 255, 255, 1);
-  --cgx-icon-hover: rgba(0, 0, 0, 0.06);
+  --cgx-input-bg: rgba(255, 255, 255, 0.95);  --cgx-icon-hover: rgba(0, 0, 0, 0.06);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -31,10 +28,7 @@
     --cgx-btn-bg-hover: rgba(72, 72, 74, 1);
     --cgx-item-bg: rgba(44, 44, 46, 0.9);
     --cgx-item-bg-hover: rgba(58, 58, 60, 1);
-    --cgx-input-bg: rgba(44, 44, 46, 0.95);
-    --cgx-toggle-bg: rgba(58, 58, 60, 0.9);
-    --cgx-toggle-bg-hover: rgba(72, 72, 74, 1);
-    --cgx-icon-hover: rgba(255, 255, 255, 0.08);
+    --cgx-input-bg: rgba(44, 44, 46, 0.95);    --cgx-icon-hover: rgba(255, 255, 255, 0.08);
   }
 }
 
@@ -55,10 +49,7 @@ body[class*="dark"] {
   --cgx-btn-bg-hover: rgba(72, 72, 74, 1);
   --cgx-item-bg: rgba(44, 44, 46, 0.9);
   --cgx-item-bg-hover: rgba(58, 58, 60, 1);
-  --cgx-input-bg: rgba(44, 44, 46, 0.95);
-  --cgx-toggle-bg: rgba(58, 58, 60, 0.9);
-  --cgx-toggle-bg-hover: rgba(72, 72, 74, 1);
-  --cgx-icon-hover: rgba(255, 255, 255, 0.08);
+  --cgx-input-bg: rgba(44, 44, 46, 0.95);  --cgx-icon-hover: rgba(255, 255, 255, 0.08);
 }
 
 :root[data-cgx-theme="dark"] {
@@ -73,10 +64,7 @@ body[class*="dark"] {
   --cgx-btn-bg-hover: rgba(72, 72, 74, 1);
   --cgx-item-bg: rgba(44, 44, 46, 0.9);
   --cgx-item-bg-hover: rgba(58, 58, 60, 1);
-  --cgx-input-bg: rgba(44, 44, 46, 0.95);
-  --cgx-toggle-bg: rgba(58, 58, 60, 0.9);
-  --cgx-toggle-bg-hover: rgba(72, 72, 74, 1);
-  --cgx-icon-hover: rgba(255, 255, 255, 0.08);
+  --cgx-input-bg: rgba(44, 44, 46, 0.95);  --cgx-icon-hover: rgba(255, 255, 255, 0.08);
 }
 
 :root[data-cgx-theme="light"] {
@@ -91,10 +79,7 @@ body[class*="dark"] {
   --cgx-btn-bg-hover: rgba(255, 255, 255, 1);
   --cgx-item-bg: rgba(255, 255, 255, 0.75);
   --cgx-item-bg-hover: rgba(255, 255, 255, 1);
-  --cgx-input-bg: rgba(255, 255, 255, 0.95);
-  --cgx-toggle-bg: rgba(255, 255, 255, 0.95);
-  --cgx-toggle-bg-hover: rgba(255, 255, 255, 1);
-  --cgx-icon-hover: rgba(0, 0, 0, 0.06);
+  --cgx-input-bg: rgba(255, 255, 255, 0.95);  --cgx-icon-hover: rgba(0, 0, 0, 0.06);
 }
 
 /* Sidebar container */
@@ -346,46 +331,11 @@ body[class*="dark"] {
   border-radius: 10px;
 }
 
-/* Collapse assistant message content (container-level, safer) */
-.cgx-collapsed {
-  max-height: 100px !important;
-  overflow: hidden !important;
-  position: relative;
-  mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
-}
 
-/* Toggle button injected into assistant message */
-.cgx-toggle-row {
-  display: flex;
-  justify-content: flex-end;
-  margin: -1px 0 6px;
-  padding-right: 2px;
-}
-
-.cgx-toggle {
-  position: static;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 24px;
-  z-index: var(--cgx-z);
-  border: none;
-  background: var(--cgx-toggle-bg);
-  color: var(--cgx-text);
-  font-size: 11px;
-  font-weight: 500;
-  padding: 0;
-  border-radius: 8px;
-  cursor: pointer;
-  user-select: none;
-  touch-action: manipulation;
-  pointer-events: auto;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-.cgx-toggle:hover {
-  background: var(--cgx-toggle-bg-hover);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-}
+#cgx-brand { display: block; color: var(--cgx-text); margin-bottom: 8px; font-size: 14px; }
+.cgx-item { text-align: start; width: 100%; font-family: inherit; flex-shrink: 0; }
+.cgx-item:focus-visible, .cgx-btn:focus-visible, #cgx-search:focus-visible { outline: 2px solid #4f8cff; outline-offset: -2px; }
+#cgx-status { color: var(--cgx-subtext); font-size: 12px; padding: 0 10px; }
+#cgx-status:empty { display: none; }
+#cgx-hidden-default:focus-visible + .cgx-switch-track { outline: 2px solid #4f8cff; }
+@media (prefers-reduced-motion: reduce) { #cgx-sidebar { transition: none; } .cgx-highlight { animation: none; outline: 2px solid #4f8cff; } }

@@ -28,7 +28,7 @@ function eq(label, actual, expected) {
   check(label, actual === expected, `expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
 }
 
-const ROOT = path.join(__dirname, "..");
+const ROOT = process.env.CHATJUMP_TEST_ROOT || path.join(__dirname, "..");
 const MANIFEST = JSON.parse(fs.readFileSync(path.join(ROOT, "manifest.json"), "utf8"));
 const SCRIPTS = MANIFEST.content_scripts[0].js;
 
@@ -96,7 +96,7 @@ function jsonResponse(window, body, status = 200) {
   };
 }
 
-function boot({ apiFails = false, attachmentsOn = null } = {}) {
+function boot({ apiFails = false, attachmentsOn = null, modern = false } = {}) {
   const dom = new JSDOM(
     `<!doctype html><html class="dark"><body><main>
        <div id="scroller"><div id="turn-host"></div></div>
@@ -127,6 +127,7 @@ function boot({ apiFails = false, attachmentsOn = null } = {}) {
   const scroller = doc.getElementById("scroller");
   const host = doc.getElementById("turn-host");
   scroller.style.overflowY = "auto";
+  if (modern) scroller.className = "thread-scroll-container";
   const totalTurns = PAIRS * 2;
   const state = { mountedFrom: -1, scrollWrites: 0 };
   let scrollTop = 0;
@@ -159,6 +160,24 @@ function boot({ apiFails = false, attachmentsOn = null } = {}) {
     state.mountedFrom = first;
     let html = "";
     for (let i = first; i < first + WINDOW; i++) html += turnHtml(i);
+    if (modern) {
+      const temp = doc.createElement("div");
+      temp.innerHTML = html;
+      for (const el of temp.querySelectorAll("[data-message-id]")) {
+        const id = el.getAttribute("data-message-id");
+        const role = el.getAttribute("data-message-author-role");
+        const wrapper = el.closest("[data-turn-id-container]");
+        const pair = Math.floor((Number(el.closest("[data-testid]").getAttribute("data-testid").split("-").pop()) - 1) / 2);
+        wrapper.setAttribute("data-turn-key", id);
+        el.setAttribute("data-chatgpt-search-message-ids", id);
+        el.setAttribute("data-chatgpt-search-unit-key", "fallback-turn-" + pair + ":0:" + role);
+        if (role === "user") el.querySelector(".user-message-bubble-color").setAttribute("data-user-message-bubble", "true");
+      }
+      for (const el of temp.querySelectorAll("*")) {
+        for (const name of ["data-message-id", "data-message-author-role", "data-turn-id", "data-turn-id-container", "data-turn", "data-testid", "data-message-model-slug"]) el.removeAttribute(name);
+      }
+      html = temp.innerHTML;
+    }
     host.innerHTML = html;
   }
 
@@ -178,8 +197,8 @@ function boot({ apiFails = false, attachmentsOn = null } = {}) {
   // jsdom reports every rect as all-zero, which would make "is the target
   // resting near the top of the viewport?" trivially true.
   function turnIndexOf(el) {
-    const container = el.closest?.("[data-turn-id-container]");
-    const uid = container?.getAttribute("data-turn-id-container") || "";
+    const container = el.closest?.("[data-turn-id-container], [data-turn-key]");
+    const uid = container?.getAttribute("data-turn-id-container") || container?.getAttribute("data-turn-key") || "";
     const m = /^([ua])-(\d+)$/.exec(uid);
     if (!m) return null;
     return (Number(m[2]) - 1) * 2 + (m[1] === "u" ? 0 : 1);
@@ -234,7 +253,7 @@ function boot({ apiFails = false, attachmentsOn = null } = {}) {
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const titles = (doc) => Array.from(doc.querySelectorAll("#cgx-list .cgx-item .q")).map((el) => el.textContent);
 
-(async () => {
+if (require.main === module) (async () => {
   // ---- 1. The whole thread is listed, not just what is mounted ------------
   {
     const { doc, calls } = boot();
@@ -358,3 +377,5 @@ const titles = (doc) => Array.from(doc.querySelectorAll("#cgx-list .cgx-item .q"
   console.log(`\n${checks - failures}/${checks} checks passed`);
   process.exit(failures ? 1 : 0);
 })();
+
+module.exports = { boot, wait, questionText };

@@ -1,10 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "ChatGPT Navigator - Jump Between Questions, Fold Long Answers, Stay Focused",
-  "version": "1.0.0",
-  "description": "Jump between questions. Fold long answers. Stay focused.",
-  "permissions": ["storage"],
-  "host_permissions": ["https://chatgpt.com/*"],
+  "name": "ChatJump — Conversation Navigator",
+  "version": "1.0.1",
+  "description": "Find and jump to questions in your ChatGPT conversations. A searchable table of contents that keeps every answer fully visible.",
+  "permissions": [
+    "storage"
+  ],
   "action": {
     "default_icon": {
       "16": "icons/icon16.png",
@@ -14,9 +15,18 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://chatgpt.com/*"],
-      "js": ["src/chatgpt-dom.js", "src/turn-order.js", "src/conversation-api.js", "content.js"],
-      "css": ["styles.css"],
+      "matches": [
+        "https://chatgpt.com/*"
+      ],
+      "js": [
+        "src/chatgpt-dom.js",
+        "src/turn-order.js",
+        "src/conversation-api.js",
+        "content.js"
+      ],
+      "css": [
+        "styles.css"
+      ],
       "run_at": "document_idle"
     }
   ],

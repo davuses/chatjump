@@ -8,7 +8,7 @@
  *
  * Nothing here touches the sidebar or extension state — it only answers
  * questions about the page: where are the turns, who wrote each one, what
- * order do they go in, and which part of an answer is collapsible.
+ * order do they go in, and where is the answer body.
  */
 var CGXDom = (function () {
   "use strict";
@@ -19,7 +19,7 @@ var CGXDom = (function () {
   // ---------- Selector inventory ----------
 
   // Markers that identify an assistant answer body. Ordered most- to
-  // least-specific; the first hit wins when picking a collapse target.
+  // least-specific; the first hit wins when locating the answer body.
   const ASSISTANT_CONTENT_CASCADE = [
     ".markdown",
     "[data-message-content]",
@@ -43,6 +43,7 @@ var CGXDom = (function () {
 
   // Markers that only ever appear on a user turn.
   const USER_BUBBLE_SELECTOR = [
+    "[data-user-message-bubble]",
     "[data-testid='user-message']",
     "[data-message-author-role='user']",
     "[class*='user-message-bubble']",
@@ -76,6 +77,8 @@ var CGXDom = (function () {
 
   // Anything that marks an element as living inside a conversation turn.
   const TURN_HOST_SELECTOR = [
+    "[data-chatgpt-search-message-ids]",
+    "[data-turn-key]",
     "[data-message-author-role]",
     "[data-message-id]",
     "[data-turn-id]",
@@ -92,6 +95,9 @@ var CGXDom = (function () {
   // Deliberately broad: this only decides whether a DOM mutation is worth a
   // (debounced) rescan, so a false positive costs far less than a miss.
   const MESSAGE_HINT_ATTRS = [
+    "data-chatgpt-search-message-ids",
+    "data-turn-key",
+    "data-virtualized-turn-content",
     "data-message-author-role",
     "data-message-id",
     "data-turn-id",
@@ -138,7 +144,7 @@ var CGXDom = (function () {
   }
 
   function conversationRoot() {
-    return document.querySelector("main") || document.body;
+    return document.querySelector(".thread-scroll-container") || document.querySelector("main") || document.body;
   }
 
   function isChatRoute(pathname) {
@@ -170,6 +176,11 @@ var CGXDom = (function () {
   // wrapper still resolves as long as *something* inside it is recognisable.
   function inferRole(el) {
     if (!el || el.nodeType !== 1) return null;
+
+    const unitKey = el.getAttribute("data-chatgpt-search-unit-key") || el.getAttribute("data-content-search-unit-key");
+    if (unitKey?.endsWith(":user")) return ROLE_USER;
+    if (unitKey?.endsWith(":assistant")) return ROLE_ASSISTANT;
+    if (el.matches("[data-user-message-bubble]")) return ROLE_USER;
 
     const direct =
       normalizeRole(el.getAttribute?.("data-message-author-role")) ||
@@ -272,6 +283,7 @@ var CGXDom = (function () {
   // Ordered cascade of ways to find conversation turns. `probe` runs cheaply
   // and the first strategy that yields usable turns is remembered.
   const TURN_STRATEGIES = [
+    { name: "search-unit", select: () => queryIn("[data-chatgpt-search-message-ids]") },
     { name: "author-role", select: () => document.querySelectorAll("[data-message-author-role]") },
     { name: "turn-attr", select: () => document.querySelectorAll("[data-turn='user'], [data-turn='assistant']") },
     // Deliberately tag-agnostic. This used to be pinned to `article`, and
@@ -378,9 +390,12 @@ var CGXDom = (function () {
   }
 
   // A value that identifies a turn across re-mounts, used to key saved
-  // collapse state. Falls back to null so the caller can mint its own id.
+  // the question index. Falls back to null so the caller can mint its own id.
   function stableKey(el) {
     if (!el) return null;
+    const searchUnit = el.closest?.("[data-chatgpt-search-message-ids]");
+    const messageIds = searchUnit?.getAttribute("data-chatgpt-search-message-ids")?.trim();
+    if (messageIds) return messageIds.split(/\s+/)[0];
     for (const name of ["data-message-id", "data-turn-id"]) {
       const own = el.getAttribute?.(name);
       if (own) return own;
@@ -405,7 +420,7 @@ var CGXDom = (function () {
   }
 
   /**
-   * The part of an assistant turn that should collapse. Prefers a tagged
+   * The readable body of an assistant turn. Prefers a tagged
    * markdown body, then the common ancestor of the answer's block elements,
    * then the turn itself.
    */

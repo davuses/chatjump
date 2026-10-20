@@ -1,17 +1,16 @@
 /**
- * ChatGPT Navigator — sidebar, prompt index and answer folding.
+ * ChatJump — question navigation and prompt index.
  *
  * This file owns the extension's UI and state. It deliberately knows nothing
  * about ChatGPT's markup: every question about the page ("where are the
- * turns?", "who wrote this one?", "which part folds?") goes through CGXDom in
+ * turns?", "who wrote this one?", "what is its id?") goes through CGXDom in
  * src/chatgpt-dom.js, and prompt ordering goes through CGXOrder in
  * src/turn-order.js.
  */
 (() => {
   const EXT_NS = "cgx";
   const SIDEBAR_ID = "cgx-sidebar";
-  const STORAGE_KEY_PREFIX = "cgx_state_v1";
-  const PREFS_KEY = "cgx_prefs_v1";
+  const PREFS_KEY = "chatjump_prefs_v1";
   const TITLE_CACHE_VERSION = "2";
   const DEBOUNCE_MS = 250;
   // A streaming answer mutates the DOM continuously, which resets a plain
@@ -102,45 +101,9 @@
       <rect x="6" y="11" width="12" height="2" fill="currentColor" rx="1" />
     </svg>
   `;
-  const EXPAND_SVG = `
-    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-      <path fill="currentColor" d="M7.4 9.6L12 14.2l4.6-4.6L18 11l-6 6-6-6z"/>
-    </svg>
-  `;
-  const COLLAPSE_SVG = `
-    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-      <path fill="currentColor" d="M7.4 14.4L12 9.8l4.6 4.6L18 13l-6-6-6 6z"/>
-    </svg>
-  `;
   let prefsCache = { hiddenByDefault: false };
   const titleCacheByElement = new WeakMap();
   const regexCache = new Map();
-
-  const svgTemplateContainer = document.createElement("div");
-  function parseSvgTemplate(html) {
-    svgTemplateContainer.innerHTML = html;
-    return svgTemplateContainer.firstElementChild;
-  }
-  const EXPAND_SVG_TMPL = parseSvgTemplate(EXPAND_SVG);
-  const COLLAPSE_SVG_TMPL = parseSvgTemplate(COLLAPSE_SVG);
-
-  function setToggleIcon(btn, collapsed) {
-    const tmpl = collapsed ? EXPAND_SVG_TMPL : COLLAPSE_SVG_TMPL;
-    const existing = btn.firstElementChild;
-    if (existing?.getAttribute?.("viewBox") === tmpl.getAttribute("viewBox")) {
-      const path = existing.querySelector("path, rect");
-      const tmplPath = tmpl.querySelector("path, rect");
-      if (path && tmplPath && path.getAttribute("d") === tmplPath.getAttribute("d")) return;
-    }
-    btn.replaceChildren(tmpl.cloneNode(true));
-    btn.setAttribute("aria-label", collapsed ? "Expand" : "Collapse");
-    btn.setAttribute("title", collapsed ? "Expand" : "Collapse");
-  }
-
-  // ---------- Utilities ----------
-  function getConversationKey() {
-    return `${STORAGE_KEY_PREFIX}:${location.host}${location.pathname}`;
-  }
 
   function textPreview(s, max = 120) {
     if (!s) return "";
@@ -387,7 +350,6 @@
   function removeInjectedUI() {
     document.getElementById(SIDEBAR_ID)?.remove();
     document.getElementById("cgx-show-pill")?.remove();
-    document.querySelectorAll(`.${EXT_NS}-toggle, .${EXT_NS}-toggle-wrap`).forEach((el) => el.remove());
   }
 
   function classifyMutations(records) {
@@ -486,6 +448,7 @@
 
     sb.innerHTML = `
       <div id="cgx-header">
+        <strong id="cgx-brand">ChatJump</strong>
         <div id="cgx-title-row">
           <label id="cgx-hidden-default-row" for="cgx-hidden-default">
             <span>Hidden by Default</span>
@@ -498,14 +461,13 @@
             ${MINUS_SVG}
           </button>
         </div>
-        <input id="cgx-search" placeholder="Search questions…" />
+        <input id="cgx-search" aria-label="Search questions" placeholder="Search questions…" />
         <div id="cgx-actions">
           <button class="cgx-btn" id="cgx-refresh" title="Rescan messages">Refresh</button>
-          <button class="cgx-btn" id="cgx-collapse-all">Collapse all</button>
-          <button class="cgx-btn" id="cgx-expand-all">Expand all</button>
         </div>
       </div>
-      <div id="cgx-list"></div>
+      <div id="cgx-status" role="status" aria-live="polite"></div>
+      <div id="cgx-list" aria-label="Questions"></div>
     `;
 
     document.documentElement.appendChild(sb);
@@ -525,10 +487,6 @@
       CGXDom.resetStrategy();
       scanAndRender({ force: true });
     });
-
-    // Collapse/Expand all
-    sb.querySelector("#cgx-collapse-all").addEventListener("click", () => setAllAssistantCollapsed(true));
-    sb.querySelector("#cgx-expand-all").addEventListener("click", () => setAllAssistantCollapsed(false));
 
     const hiddenDefaultToggle = sb.querySelector("#cgx-hidden-default");
     syncHiddenByDefaultToggle(sb);
@@ -580,35 +538,10 @@
   }
 
   // ---------- Storage ----------
-  async function loadState() {
-    const key = getConversationKey();
-    return new Promise((resolve) => {
-      chrome.storage.local.get([key], (res) => resolve(normalizeState(res[key])));
-    });
-  }
-
-  let saveStateTimer = null;
-  function saveState(state) {
-    if (saveStateTimer) clearTimeout(saveStateTimer);
-    saveStateTimer = setTimeout(() => {
-      saveStateTimer = null;
-      const key = getConversationKey();
-      chrome.storage.local.set({ [key]: state });
-    }, 300);
-  }
-  function saveStateNow(state) {
-    if (saveStateTimer) { clearTimeout(saveStateTimer); saveStateTimer = null; }
-    const key = getConversationKey();
-    return new Promise((resolve) => {
-      chrome.storage.local.set({ [key]: state }, () => resolve());
-    });
-  }
-
   function normalizePrefs(raw) {
     const prefs = raw && typeof raw === "object" ? raw : {};
     const hasHiddenByDefault = Object.prototype.hasOwnProperty.call(prefs, "hiddenByDefault");
-    const hasExpandByDefault = Object.prototype.hasOwnProperty.call(prefs, "expandByDefault");
-    const hiddenByDefault = hasHiddenByDefault ? !!prefs.hiddenByDefault : hasExpandByDefault ? !prefs.expandByDefault : false;
+    const hiddenByDefault = hasHiddenByDefault ? !!prefs.hiddenByDefault : false;
     return {
       hiddenByDefault
     };
@@ -637,149 +570,6 @@
     if (toggle) toggle.checked = !!prefsCache.hiddenByDefault;
   }
 
-  // ---------- Collapse logic ----------
-  //
-  // Stored as a conversation-wide default plus per-answer overrides, not as a
-  // set of collapsed ids. ChatGPT only mounts a window of the thread, so
-  // "Collapse all" can never reach every answer at the moment it is clicked —
-  // recording it as a default is what makes answers arrive already folded when
-  // they finally mount.
-  //
-  // `defaultCollapsedUpTo` pins the default to answers that existed when the
-  // button was pressed, so a reply you ask for afterwards isn't folded away
-  // while it is still being written.
-  function normalizeState(raw) {
-    const s = raw && typeof raw === "object" ? raw : {};
-    if (s.overrides || typeof s.defaultCollapsed === "boolean") {
-      return {
-        defaultCollapsed: !!s.defaultCollapsed,
-        defaultCollapsedUpTo: Number.isFinite(s.defaultCollapsedUpTo) ? s.defaultCollapsedUpTo : null,
-        overrides: { ...(s.overrides || {}) }
-      };
-    }
-    // v1 stored a plain set of collapsed message ids.
-    const overrides = {};
-    for (const id of Object.keys(s.collapsed || {})) overrides[id] = true;
-    return { defaultCollapsed: false, defaultCollapsedUpTo: null, overrides };
-  }
-
-  let stateCache = normalizeState(null);
-
-  function isCollapsed(messageId, el) {
-    const overrides = stateCache.overrides;
-    if (overrides && Object.prototype.hasOwnProperty.call(overrides, messageId)) return !!overrides[messageId];
-    if (!stateCache.defaultCollapsed) return false;
-    const limit = stateCache.defaultCollapsedUpTo;
-    if (limit == null) return true;
-    const turn = el ? CGXDom.turnNumber(el) : null;
-    return turn == null ? true : turn <= limit;
-  }
-
-  function setCollapsed(messageId, value, el) {
-    stateCache.overrides = stateCache.overrides || {};
-    // Record only a deviation from the default: drop any existing override,
-    // see what the default gives, and re-add one only if it disagrees. Keeping
-    // the map sparse is what lets "Collapse all" keep applying to answers that
-    // have not mounted yet.
-    delete stateCache.overrides[messageId];
-    if (isCollapsed(messageId, el) !== !!value) stateCache.overrides[messageId] = !!value;
-    saveState(stateCache);
-  }
-
-  // Highest turn number we know about, mounted or merely indexed.
-  function highestKnownTurn(scan) {
-    let max = null;
-    for (const entry of indexById.values()) {
-      if (CGXOrder.hasTurn(entry) && (max == null || entry.turn > max)) max = entry.turn;
-    }
-    for (const t of scan?.turns || []) {
-      const n = CGXDom.turnNumber(t.el);
-      if (n != null && (max == null || n > max)) max = n;
-    }
-    return max;
-  }
-
-  function injectToggleForAssistant(blockEl, messageId) {
-    const content = CGXDom.assistantContent(blockEl);
-    if (!content || CGXDom.isComposer(content)) return null;
-
-    let wrap = blockEl.querySelector?.(`.${EXT_NS}-toggle-wrap`);
-    if (!wrap) {
-      wrap = document.createElement("div");
-      wrap.className = `cgx-toggle-row ${EXT_NS}-toggle-wrap`;
-    }
-
-    let btn = wrap.querySelector?.(`button.${EXT_NS}-toggle`);
-    if (!btn) {
-      const existing = blockEl.querySelector?.(`button.${EXT_NS}-toggle`);
-      if (existing) btn = existing;
-    }
-
-    if (!btn) {
-      btn = document.createElement("button");
-      btn.className = "cgx-toggle cgx-toggle-btn " + `${EXT_NS}-toggle`;
-      btn.type = "button";
-    }
-
-    if (!wrap.contains(btn)) wrap.appendChild(btn);
-    const parent = content?.parentElement || blockEl;
-    if (parent && !parent.contains(wrap)) {
-      parent.insertBefore(wrap, content);
-    }
-
-    const apply = () => {
-      const collapsed = isCollapsed(messageId, blockEl);
-      content.classList.toggle("cgx-collapsed", collapsed);
-      setToggleIcon(btn, collapsed);
-    };
-
-    btn.dataset.cgxTarget = messageId;
-
-    if (!btn.dataset?.cgxBound) {
-      btn.dataset.cgxBound = "1";
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const targetId = btn.dataset.cgxTarget;
-        if (!targetId) return;
-        const targetEl = document.querySelector(`[data-${EXT_NS}-id="${safeAttrSelector(targetId)}"]`);
-        if (!targetEl) return;
-        const targetContent = CGXDom.assistantContent(targetEl);
-        if (!targetContent) return;
-        const next = !isCollapsed(targetId, targetEl);
-        setCollapsed(targetId, next, targetEl);
-        targetContent.classList.toggle("cgx-collapsed", next);
-        setToggleIcon(btn, next);
-      });
-    }
-
-    apply();
-    return btn;
-  }
-
-  async function setAllAssistantCollapsed(value) {
-    const scan = CGXDom.scanTurns();
-
-    // Set the conversation default and clear every per-answer deviation. The
-    // answers currently on screen are updated below; the ones ChatGPT hasn't
-    // mounted pick this up from the default when they appear.
-    stateCache.defaultCollapsed = !!value;
-    stateCache.overrides = {};
-    stateCache.defaultCollapsedUpTo = value ? highestKnownTurn(scan) : null;
-
-    pauseObserver();
-    try {
-      for (let i = 0; i < scan.assistant.length; i++) {
-        const el = scan.assistant[i];
-        if (CGXDom.isComposer(el)) continue;
-        injectToggleForAssistant(el, stableIdForElement(el, i, CGXDom.ROLE_ASSISTANT));
-      }
-    } finally {
-      resumeObserver();
-    }
-
-    await saveStateNow(stateCache);
-  }
-
   // ---------- Sidebar index ----------
   // Prompts accumulate in `indexById` (keyed by a stable id) instead of being
   // rebuilt from the DOM on every scan. ChatGPT virtualizes/windows long
@@ -790,8 +580,6 @@
   let currentIndex = []; // ordered snapshot of indexById, used for rendering
   let lastRenderedFilter = "";
   let lastUserSignature = "";
-  let lastAssistantSignature = "";
-  let lastScanTurns = [];
   let forceFullScan = true;
   let searchRenderTimer = null;
 
@@ -800,12 +588,13 @@
   }
 
   function resetScanState() {
+    revealSequence++;
+    const status = document.getElementById("cgx-status");
+    if (status) status.textContent = "";
     indexById.clear();
     discoverySeq = 0;
     setCurrentIndex([]);
     lastUserSignature = "";
-    lastAssistantSignature = "";
-    lastScanTurns = [];
     forceFullScan = true;
     apiOrder = null;
     apiLoadedForPath = "";
@@ -833,25 +622,6 @@
       renderList(currentIndex, q);
       lastRenderedFilter = q;
     }, SEARCH_INPUT_DEBOUNCE_MS);
-  }
-
-  // The answer that belongs to a prompt is the next assistant turn after it.
-  // Uses the ordered turn list from the last scan so it costs nothing extra.
-  function findNextAssistantForUser(userEl, turns, allowRescan = true) {
-    if (!userEl) return null;
-    const list = turns || lastScanTurns;
-    const idx = list.findIndex((t) => t.el === userEl);
-    if (idx < 0) {
-      if (!allowRescan) return null;
-      lastScanTurns = CGXDom.scanTurns().turns;
-      return findNextAssistantForUser(userEl, lastScanTurns, false);
-    }
-    for (let i = idx + 1; i < list.length; i++) {
-      if (list[i].role === CGXDom.ROLE_ASSISTANT) return list[i].el;
-      // Hit the next question before finding an answer — nothing to expand.
-      if (list[i].role === CGXDom.ROLE_USER) return null;
-    }
-    return null;
   }
 
   // ---------- Jumping to a prompt ----------
@@ -882,8 +652,9 @@
   }
 
   function findScroller() {
-    const anchor = document.querySelector("[data-message-id]") || CGXDom.conversationRoot();
-    let el = anchor?.parentElement;
+    const root = CGXDom.conversationRoot();
+    const anchor = root.querySelector("[data-chatgpt-search-message-ids], [data-message-id]") || root;
+    let el = anchor;
     while (el && el !== document.body) {
       if (el.scrollHeight > el.clientHeight + 32) {
         const overflowY = getComputedStyle(el).overflowY;
@@ -900,12 +671,15 @@
     // Queried separately, not as one comma selector: the container wraps the
     // message, so a combined query would return the container by document
     // order. Callers need the message itself when it exists — it is what the
-    // turn scan yields, and what expanding the answer below it keys off.
+    // turn scan yields.
     return (
+      document.querySelector(`[data-chatgpt-search-message-ids~="${safe}"]`) ||
       document.querySelector(`[data-message-id="${safe}"]`) ||
       // Placeholder that survives when the message itself is unmounted; still
       // worth scrolling to.
-      document.querySelector(`[data-turn-id-container="${safe}"]`)
+      document.querySelector(`[data-turn-id-container="${safe}"]`) ||
+      document.querySelector(`[data-turn-key="${safe}"]`) ||
+      document.querySelector(`[data-turn-id="${safe}"]`)
     );
   }
 
@@ -914,8 +688,8 @@
     if (!apiOrder) return null;
     let min = Infinity;
     let max = -Infinity;
-    for (const el of document.querySelectorAll("[data-message-id]")) {
-      const pos = apiOrder.get(el.getAttribute("data-message-id"));
+    for (const el of CGXDom.conversationRoot().querySelectorAll("[data-chatgpt-search-message-ids], [data-message-id]")) {
+      const pos = apiOrder.get(CGXDom.stableKey(el));
       if (pos == null) continue;
       if (pos < min) min = pos;
       if (pos > max) max = pos;
@@ -926,7 +700,7 @@
   // Bisect on scroll position until the wanted turn mounts. Each pass compares
   // the target against the range currently on screen, so it converges in a few
   // steps instead of crawling the thread.
-  async function huntForMessage(entry) {
+  async function huntForMessage(entry, isCurrent) {
     if (!entry.messageId) return null;
     const scroller = findScroller();
     if (scroller.scrollHeight - scroller.clientHeight <= 0) return null;
@@ -938,8 +712,10 @@
     let guess = Math.min(1, Math.max(0, position / Math.max(1, total - 1)));
 
     for (let attempt = 0; attempt < HUNT_ATTEMPTS; attempt++) {
+      if (!isCurrent()) return null;
       scroller.scrollTop = (scroller.scrollHeight - scroller.clientHeight) * guess;
       const found = await waitFor(() => messageElement(entry.messageId), HUNT_MOUNT_TIMEOUT_MS);
+      if (!isCurrent()) return null;
       if (found) return found;
 
       const range = mountedApiRange();
@@ -962,11 +738,13 @@
    * second click. So: jump instantly, let the thread relayout, look at where
    * the target actually ended up, and correct until it stays put.
    */
-  async function settleOnElement(entry, initial) {
+  async function settleOnElement(entry, initial, isCurrent) {
     let el = initial;
     for (let pass = 0; pass < SETTLE_PASSES; pass++) {
+      if (!isCurrent()) return null;
       if (!el?.isConnected) {
         el = entry.messageId ? await waitFor(() => messageElement(entry.messageId), HUNT_MOUNT_TIMEOUT_MS) : null;
+        if (!isCurrent()) return null;
         if (!el) return null;
       }
 
@@ -975,9 +753,9 @@
       const restingNearTop = rect.top >= 0 && rect.top <= Math.max(120, viewportHeight * 0.5);
       if (restingNearTop) return el;
 
-      // "auto", never "smooth" — an instant scroll cannot be interrupted by
-      // the relayout it triggers.
-      el.scrollIntoView({ behavior: "auto", block: "start" });
+      // Explicit instant scrolling overrides site-wide smooth scrolling and
+      // cannot be interrupted by the relayout it triggers.
+      el.scrollIntoView({ behavior: "instant", block: "start" });
       await sleep(SETTLE_PAUSE_MS);
       if (entry.messageId) el = messageElement(entry.messageId) || el;
     }
@@ -991,34 +769,28 @@
     setTimeout(() => el?.classList?.remove("cgx-highlight"), 1300);
   }
 
-  function expandAnswerFor(userEl) {
-    const next = findNextAssistantForUser(userEl);
-    if (!next) return;
-    const nextId = next.getAttribute?.(`data-${EXT_NS}-id`);
-    if (!nextId || !isCollapsed(nextId, next)) return;
-    setCollapsed(nextId, false, next);
-    const content = CGXDom.assistantContent(next);
-    content?.classList?.remove("cgx-collapsed");
-    const toggleBtn = next.querySelector?.(`.${EXT_NS}-toggle`);
-    if (!toggleBtn) return;
-    setToggleIcon(toggleBtn, false);
-  }
-
-  let revealInFlight = false;
+  let revealSequence = 0;
   async function revealEntry(entry) {
-    if (!entry || revealInFlight) return;
-    revealInFlight = true;
+    if (!entry) return;
+    const sequence = ++revealSequence;
+    const epoch = routeEpoch;
+    const path = location.pathname;
+    const isCurrent = () => sequence === revealSequence && epoch === routeEpoch && path === location.pathname;
+    const status = document.getElementById("cgx-status");
+    if (status) status.textContent = "Finding question…";
     try {
       let el = entry.el?.isConnected ? entry.el : messageElement(entry.messageId);
-      if (!el) el = await huntForMessage(entry);
-      if (!el) return;
-      el = (await settleOnElement(entry, el)) || el;
-      if (!el.isConnected) return;
+      if (!el) el = await huntForMessage(entry, isCurrent);
+      if (!isCurrent()) return;
+      if (!el) throw new Error("Question not mounted");
+      el = await settleOnElement(entry, el, isCurrent);
+      if (!isCurrent()) return;
+      if (!el?.isConnected) throw new Error("Question unmounted");
       entry.el = el;
       flashElement(el);
-      expandAnswerFor(el);
-    } finally {
-      revealInFlight = false;
+      if (status) status.textContent = "";
+    } catch {
+      if (isCurrent() && status) status.textContent = "Couldn’t reach this question. Refresh the list and try again.";
     }
   }
 
@@ -1050,7 +822,7 @@
     if (staleMessageKeys && staleForPath === targetPath) return;
     staleForPath = targetPath;
     const keys = new Set();
-    for (const el of document.querySelectorAll("[data-message-id], [data-turn-id]")) {
+    for (const el of CGXDom.conversationRoot().querySelectorAll("[data-chatgpt-search-message-ids], [data-message-id], [data-turn-id]")) {
       const key = CGXDom.stableKey(el);
       if (key) keys.add(key);
     }
@@ -1152,7 +924,7 @@
 
   // ---------- Conversation API ----------
   // The API is authoritative for *which* prompts exist and in what order; the
-  // DOM only supplies live elements to scroll to and fold. Everything here
+  // DOM only supplies live elements to scroll to. Everything here
   // degrades to null/no-op if the fetch fails, leaving the DOM path in charge.
   let apiOrder = null; // messageId -> position on the active branch
   let apiLoadedForPath = "";
@@ -1338,7 +1110,8 @@
   }
 
   function createItemCard(it) {
-    const card = document.createElement("div");
+    const card = document.createElement("button");
+    card.type = "button";
     card.className = "cgx-item";
     const meta = document.createElement("div");
     meta.className = "meta";
@@ -1383,18 +1156,6 @@
     return `${len}:${getNodeSignaturePart(nodes[0], 0)}|${getNodeSignaturePart(nodes[mid], mid)}|${getNodeSignaturePart(nodes[len - 1], len - 1)}`;
   }
 
-  function syncAssistantToggles(assistantNodes) {
-    for (let i = 0; i < assistantNodes.length; i++) {
-      const el = assistantNodes[i];
-      if (CGXDom.isComposer(el)) continue;
-      const id = stableIdForElement(el, i, CGXDom.ROLE_ASSISTANT);
-      const existing = el.querySelector?.(`button.${EXT_NS}-toggle`);
-      if (!existing || existing.dataset?.cgxBound !== "1") {
-        injectToggleForAssistant(el, id);
-      }
-    }
-  }
-
   async function scanAndRender(options = {}) {
     if (!isChatRoute()) return;
     if (options.force) forceFullScan = true;
@@ -1405,14 +1166,10 @@
     pauseObserver();
     try {
       const scan = dropStaleTurns(CGXDom.scanTurns());
-      lastScanTurns = scan.turns;
 
       const userSignature = buildNodeSignature(scan.user);
-      const assistantSignature = buildNodeSignature(scan.assistant);
       const userChanged = forceFullScan || userSignature !== lastUserSignature;
-      const assistantChanged = forceFullScan || assistantSignature !== lastAssistantSignature;
 
-      if (assistantChanged) syncAssistantToggles(scan.assistant);
 
       if (userChanged) {
         const changed = mergeUserNodesIntoIndex(scan.user);
@@ -1423,7 +1180,6 @@
       }
 
       lastUserSignature = userSignature;
-      lastAssistantSignature = assistantSignature;
       forceFullScan = false;
     } finally {
       resumeObserver();
@@ -1541,9 +1297,7 @@
     // long threads, and it runs while the DOM scan produces a partial list.
     const apiLoad = loadFromApi(epoch).catch(() => {});
 
-    const loadedState = await loadState();
     if (epoch !== routeEpoch || !isChatRoute()) return;
-    stateCache = loadedState;
     await scanAndRender();
     await apiLoad;
   }

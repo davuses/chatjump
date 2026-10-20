@@ -1,12 +1,15 @@
 {
-  "name": "chatgpt-navigator-ext",
-  "version": "1.0.0",
+  "name": "chatjump",
+  "version": "1.0.1",
   "private": true,
-  "description": "Chrome extension: jump between questions, fold long answers, stay focused.",
+  "description": "A question navigation sidebar for ChatGPT.",
   "scripts": {
-    "test": "node tools/test-turn-order.js && node tools/test-dom-adapter.js && node tools/test-content-smoke.js && node tools/test-api-index.js && node tools/test-conversation-switch.js"
+    "test": "node tools/test-turn-order.js && node tools/test-dom-adapter.js && node tools/test-content-smoke.js && node tools/test-api-index.js && node tools/test-conversation-switch.js && node tools/test-current-markup.js",
+    "test:browser": "node tools/test-browser.js",
+    "package": "powershell -NoProfile -File tools/package.ps1"
   },
   "devDependencies": {
-    "jsdom": "^26.0.0"
+    "jsdom": "^26.0.0",
+    "playwright": "^1.64.1"
   }
 }

@@ -166,21 +166,10 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   eq("first question text", items[0]?.querySelector(".q")?.textContent, "First question about pointers");
   eq("second question text", items[1]?.querySelector(".q")?.textContent, "Second question about references");
 
-  const toggles = doc.querySelectorAll("button.cgx-toggle");
-  eq("a fold button per answer", toggles.length, 2);
-
-  // Folding an answer must hide that answer's markdown body and persist.
-  toggles[0].dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  await wait(50);
-  const firstAnswer = doc.querySelector("[data-message-id='a-1'] .markdown");
-  check("clicking fold collapses the answer", firstAnswer?.classList.contains("cgx-collapsed"));
-  const secondAnswer = doc.querySelector("[data-message-id='a-2'] .markdown");
-  check("the other answer is untouched", !secondAnswer?.classList.contains("cgx-collapsed"));
-
-  await wait(400);
-  const saved = Object.entries(store).find(([k]) => k.startsWith("cgx_state_v1"));
-  check("collapse state is persisted", !!saved && Object.keys(saved[1].overrides || {}).length === 1);
-  check("persisted as an override, not a default", saved && saved[1].defaultCollapsed === false);
+  eq("no individual folding controls", doc.querySelectorAll("button.cgx-toggle").length, 0);
+  eq("no bulk folding controls", doc.querySelectorAll("#cgx-collapse-all, #cgx-expand-all").length, 0);
+  eq("no hidden answers", doc.querySelectorAll(".cgx-collapsed").length, 0);
+  check("no per-conversation data is saved", !Object.keys(store).some(k => k.startsWith("cgx_state")));
 
   // Search filters the list.
   const search = doc.getElementById("cgx-search");
@@ -225,53 +214,9 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   eq("late-discovered earlier turn sorts first", all[0]?.textContent, "Earlier question further up the thread");
   eq("and the rest keep their order", all[3]?.textContent, "Third question about arrays");
 
-  // ---- Collapse all, against a thread ChatGPT has only partly mounted ----
-  // The button can only reach answers that exist right now. It has to be
-  // recorded as a conversation default so answers that mount later — when the
-  // user scrolls up — arrive already folded.
-  doc.getElementById("cgx-collapse-all").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  await wait(300);
-
-  const mountedAnswers = doc.querySelectorAll("[data-message-model-slug] .markdown");
-  check(
-    "collapse all folds every mounted answer",
-    mountedAnswers.length > 0 && Array.from(mountedAnswers).every((m) => m.classList.contains("cgx-collapsed")),
-    `${Array.from(mountedAnswers).filter((m) => m.classList.contains("cgx-collapsed")).length}/${mountedAnswers.length} folded`
-  );
-
-  const persisted = Object.entries(store).find(([k]) => k.startsWith("cgx_state_v1"))?.[1];
-  check("collapse all is stored as a default", persisted?.defaultCollapsed === true);
-  eq("per-answer overrides are cleared", Object.keys(persisted?.overrides || {}).length, 0);
-
-  // An older answer scrolls into view for the first time: it must arrive folded.
-  host.insertAdjacentHTML("afterbegin", assistantTurn(4, "a-old", "An older answer from further up."));
+  host.insertAdjacentHTML("beforeend", assistantTurn(99, "a-new", "A new answer stays visible."));
   await wait(1200);
-  const older = doc.querySelector("[data-message-id='a-old'] .markdown");
-  check("an answer that mounts later arrives folded", older?.classList.contains("cgx-collapsed"));
-
-  // ...but a reply asked for *after* collapsing all should not be folded away
-  // while it is still being written.
-  host.insertAdjacentHTML("beforeend", assistantTurn(99, "a-new", "A brand new answer being written."));
-  await wait(1200);
-  const newest = doc.querySelector("[data-message-id='a-new'] .markdown");
-  check("a newly written answer stays open", newest && !newest.classList.contains("cgx-collapsed"));
-
-  // Expanding one answer must not disturb the rest.
-  const olderToggle = doc.querySelector("[data-message-id='a-old'] button.cgx-toggle");
-  olderToggle?.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  await wait(400);
-  check("expanding one answer works", older && !older.classList.contains("cgx-collapsed"));
-  check(
-    "and leaves the others folded",
-    doc.querySelector("[data-message-id='a-1'] .markdown")?.classList.contains("cgx-collapsed")
-  );
-
-  doc.getElementById("cgx-expand-all").dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
-  await wait(300);
-  check(
-    "expand all unfolds everything",
-    Array.from(doc.querySelectorAll(".markdown")).every((m) => !m.classList.contains("cgx-collapsed"))
-  );
+  eq("new answers also have no folding controls", doc.querySelectorAll("button.cgx-toggle, .cgx-collapsed").length, 0);
 
   console.log(`\n${checks - failures}/${checks} checks passed`);
   process.exit(failures ? 1 : 0);

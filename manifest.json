@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ChatJump — Conversation Navigator",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Find and jump to questions in your ChatGPT conversations. A searchable table of contents that keeps every answer fully visible.",
   "permissions": [
     "storage"

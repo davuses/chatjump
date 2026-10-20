@@ -1,8 +1,10 @@
-# Release verification — 1.0.2
+# Release verification — 1.0.3
 
 Checked October 20, 2026.
 
 Refresh button and its handler have been removed in this release. Automatic question detection remains enabled.
+
+The temporary “Finding question…” message is no longer displayed. Failed jumps still provide actionable feedback. Packaging now also extracts the release ZIP into its matching versioned folder under dist.
 
 ## Findings
 

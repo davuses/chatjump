@@ -26,7 +26,7 @@ Official image requirements: [Supplying images](https://developer.chrome.com/doc
 
 ## 4. Upload and submit
 
-Run `npm run package` from PowerShell. Upload `dist/chatjump-1.0.2.zip` as a new item. This ZIP has manifest.json at its root and contains only runtime files, icons, and the retained MIT license; it excludes tests, dependencies, Git history, and listing drafts.
+Run `npm run package` from PowerShell. Upload `dist/chatjump-1.0.3.zip` as a new item. Packaging also creates the extracted `dist/chatjump-1.0.3/` folder for Load unpacked. This ZIP has manifest.json at its root and contains only runtime files, icons, and the retained MIT license; it excludes tests, dependencies, Git history, and listing drafts.
 
 Copy the listing text and URLs from `store/LISTING.md`, upload the final images, complete the privacy fields accurately, and review distribution settings. When ready, submit for review. Google's review is required; approval and timing are determined by Google.
 

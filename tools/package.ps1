@@ -17,4 +17,7 @@ try {
         [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $sourcePath, $relativePath.Replace('\', '/')) | Out-Null
     }
 } finally { $archive.Dispose() }
+$extractedPath = Join-Path $distDir ('chatjump-' + $manifest.version)
+Expand-Archive -LiteralPath $archivePath -DestinationPath $extractedPath -Force
 Write-Output $archivePath
+Write-Output $extractedPath

@@ -767,7 +767,7 @@
     const path = location.pathname;
     const isCurrent = () => sequence === revealSequence && epoch === routeEpoch && path === location.pathname;
     const status = document.getElementById("cgx-status");
-    if (status) status.textContent = "Finding question…";
+    if (status) status.textContent = "";
     try {
       let el = entry.el?.isConnected ? entry.el : messageElement(entry.messageId);
       if (!el) el = await huntForMessage(entry, isCurrent);

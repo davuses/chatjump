@@ -42,6 +42,7 @@ var CGXApi = (function () {
     const link = linkedSignal(signal, REQUEST_TIMEOUT_MS);
     try {
       const res = await fetch(url, {
+        cache: "no-store",
         credentials: "include",
         headers: { accept: "application/json", ...(headers || {}) },
         signal: link.signal

@@ -33,7 +33,7 @@ const html = `<!doctype html><html class="dark"><meta charset="utf-8"><title>Cha
     await page.goto('https://chatgpt.com/c/chatjump-demo');
     await page.locator('#cgx-list .cgx-item').nth(3).waitFor();
     assert.equal(await page.locator('#cgx-list .cgx-item').count(), 4);
-    assert.equal(await page.locator('.cgx-toggle, .cgx-collapsed, #cgx-collapse-all, #cgx-expand-all, #cgx-refresh').count(), 0);
+    assert.equal(await page.locator('.cgx-toggle, .cgx-collapsed, #cgx-collapse-all, #cgx-expand-all').count(), 0);
     for (const i of [3,0,2,1]) {
       await page.locator('#cgx-list .cgx-item').nth(i).click();
       await page.locator(`[data-chatgpt-search-message-ids="u-${i}"].cgx-highlight`).waitFor();
@@ -57,7 +57,20 @@ const html = `<!doctype html><html class="dark"><meta charset="utf-8"><title>Cha
     const output = path.join(ROOT,'store','demo-preview.png');
     fs.mkdirSync(path.dirname(output), {recursive:true});
     await page.screenshot({path:output});
+    // A replacement scroll container on the same route can escape the observer.
+    await page.evaluate(() => {
+      const original = document.querySelector('.thread-scroll-container');
+      const replacement = original.cloneNode(true);
+      replacement.querySelector('.thread-content').insertAdjacentHTML('beforeend',
+        '<div data-chatgpt-search-unit-key="fallback-turn-4:0:user" data-chatgpt-search-message-ids="u-4"><div data-user-message-bubble="true">New question on the same page</div></div>');
+      original.replaceWith(replacement);
+    });
+    const added = page.locator('#cgx-list .cgx-item').filter({hasText:'New question on the same page'});
+    assert.equal(await added.count(), 0);
+    await page.getByRole('button', {name:'Refresh', exact:true}).click();
+    await added.waitFor();
+    assert.equal(page.url(), 'https://chatgpt.com/c/chatjump-demo');
     assert.deepEqual(errors, []);
-    console.log('Chromium passed: real extension injection, every question click, keyboard activation, search, hide/show, no folding, no page errors.');
+    console.log('Chromium passed: navigation, search, hide/show, same-page Refresh, no folding, no page errors.');
   } finally { await context.close(); }
 })().catch(error => {console.error(error);process.exit(1);});

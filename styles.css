@@ -242,9 +242,15 @@ body[class*="dark"] {
   background: var(--cgx-icon-hover);
 }
 
-#cgx-search {
+#cgx-search-row {
+  display: flex;
+  gap: 6px;
   margin-top: 8px;
-  width: 100%;
+}
+
+#cgx-search {
+  flex: 1;
+  min-width: 0;
   border: 1px solid var(--cgx-border);
   border-radius: 10px;
   padding: 7px 10px;

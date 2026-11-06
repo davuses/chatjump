@@ -461,7 +461,10 @@
             ${MINUS_SVG}
           </button>
         </div>
-        <input id="cgx-search" aria-label="Search questions" placeholder="Search questions…" />
+        <div id="cgx-search-row">
+          <input id="cgx-search" aria-label="Search questions" placeholder="Search questions…" />
+          <button type="button" class="cgx-btn" id="cgx-refresh" title="Refresh the question list">Refresh</button>
+        </div>
       </div>
       <div id="cgx-status" role="status" aria-live="polite"></div>
       <div id="cgx-list" aria-label="Questions"></div>
@@ -477,6 +480,16 @@
     const search = sb.querySelector("#cgx-search");
     search.addEventListener("input", scheduleSearchRender);
     sb.querySelector("#cgx-list").addEventListener("click", onListClick);
+    sb.querySelector("#cgx-refresh").addEventListener("click", () => {
+      if (location.pathname !== lastPath) {
+        void handleRouteChange();
+        return;
+      }
+      CGXDom.resetStrategy();
+      startObserver();
+      void scanAndRender({ force: true });
+      void loadFromApi(routeEpoch).catch(() => {});
+    });
 
     const hiddenDefaultToggle = sb.querySelector("#cgx-hidden-default");
     syncHiddenByDefaultToggle(sb);
@@ -780,7 +793,7 @@
       flashElement(el);
       if (status) status.textContent = "";
     } catch {
-      if (isCurrent() && status) status.textContent = "Couldn’t reach this question. Reload this ChatGPT tab and try again.";
+      if (isCurrent() && status) status.textContent = "Couldn’t reach this question. Refresh the list and try again.";
     }
   }
 
@@ -918,6 +931,7 @@
   // degrades to null/no-op if the fetch fails, leaving the DOM path in charge.
   let apiOrder = null; // messageId -> position on the active branch
   let apiLoadedForPath = "";
+  let apiRequestSequence = 0;
 
   function titleFromApiMessage(message) {
     const files = dedupeStrings(message.attachments || []);
@@ -972,11 +986,13 @@
   }
 
   async function loadFromApi(epoch) {
-    const conversationId = CGXApi.conversationIdFromPath();
+    const pathname = location.pathname;
+    const conversationId = CGXApi.conversationIdFromPath(pathname);
     if (!conversationId) return;
 
+    const sequence = ++apiRequestSequence;
     const result = await CGXApi.fetchConversation(conversationId);
-    if (!result || epoch !== routeEpoch) return;
+    if (!result || epoch !== routeEpoch || sequence !== apiRequestSequence || pathname !== location.pathname) return;
 
     apiOrder = result.order;
     apiLoadedForPath = location.pathname;
